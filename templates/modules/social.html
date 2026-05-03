@@ -1,0 +1,164 @@
+<script>
+/* ══════════════════════════════════════════════════════
+   SOCIAL
+══════════════════════════════════════════════════════ */
+async function social() {
+  const c = document.getElementById('content');
+  c.innerHTML = '<p>Loading…</p>';
+  try {
+    const [friendsList, board] = await Promise.all([
+      req('/social/friends/'),
+      req('/social/leaderboard/?period=week')
+    ]);
+    renderSocialPage(friendsList, board, 'week');
+  } catch(e) { c.innerHTML = `<div class="msg err">${e.message}</div>`; }
+}
+
+function renderSocialPage(friendsList, board, period) {
+  const c = document.getElementById('content');
+  c.innerHTML = `
+    <h2>Social</h2>
+    <div class="row" style="align-items:flex-start">
+
+      <!-- Left col: Friends -->
+      <div style="flex:1;min-width:260px">
+
+        <!-- Search users -->
+        <div class="card">
+          <h3>Find People</h3>
+          <div style="display:flex;gap:8px">
+            <input id="searchInput" placeholder="Search by username…" style="flex:1"
+              oninput="debounceSearch(this.value)">
+          </div>
+          <div id="searchResults" style="margin-top:10px"></div>
+        </div>
+
+        <!-- Friends list -->
+        <div class="card">
+          <h3>Following (${friendsList.length})</h3>
+          ${friendsList.length === 0
+            ? '<p style="color:var(--text-muted);font-size:13px">Not following anyone yet. Search for users above!</p>'
+            : friendsList.map(f => `
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-soft)">
+                <div>
+                  <span style="font-weight:600;font-size:13px">${f.username}</span>
+                  ${f.is_mutual ? '<span style="font-size:10px;color:var(--accent);margin-left:6px;font-weight:600">MUTUAL</span>' : ''}
+                  <p style="font-size:11px;color:var(--text-muted);margin-top:1px">Following since ${f.since}</p>
+                </div>
+                <button class="danger small" onclick="unfollowUser(${f.id}, '${f.username}')">Unfollow</button>
+              </div>`).join('')
+          }
+        </div>
+      </div>
+
+      <!-- Right col: Leaderboard -->
+      <div style="flex:2;min-width:280px">
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <h3 style="margin-bottom:0">Leaderboard</h3>
+            <div style="display:flex;gap:6px" id="periodBtns">
+              ${['week','month','all'].map(p =>
+                `<button class="small ${p === period ? 'primary' : ''}"
+                  onclick="switchLeaderboard('${p}')">${p === 'all' ? 'All Time' : p.charAt(0).toUpperCase()+p.slice(1)}</button>`
+              ).join('')}
+            </div>
+          </div>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+            Ranked by calories logged. Includes you + people you follow.
+          </p>
+          <div id="leaderboardBody">
+            ${renderBoard(board)}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  `;
+}
+
+function renderBoard(board) {
+  if (!board.length) return '<p style="color:var(--text-muted);text-align:center;padding:20px 0">No data yet. Start logging meals and workouts!</p>';
+
+  const medals = ['🥇','🥈','🥉'];
+  return `<table>
+    <tr>
+      <th style="width:40px">Rank</th>
+      <th>User</th>
+      <th>Calories</th>
+      <th>Workouts</th>
+    </tr>
+    ${board.map(row => `
+      <tr style="${row.is_you ? 'background:var(--accent-dim);' : ''}">
+        <td style="font-size:16px;text-align:center">${row.rank <= 3 ? medals[row.rank-1] : row.rank}</td>
+        <td>
+          <span style="font-weight:${row.is_you ? '700' : '500'};font-size:13px">${row.username}</span>
+          ${row.is_you ? '<span style="font-size:10px;color:var(--accent);margin-left:6px;font-weight:700">YOU</span>' : ''}
+        </td>
+        <td style="font-family:var(--font-mono);font-size:13px">${row.calories.toLocaleString()} kcal</td>
+        <td style="font-family:var(--font-mono);font-size:13px">${row.workouts}</td>
+      </tr>`).join('')}
+  </table>`;
+}
+
+async function switchLeaderboard(period) {
+  const body = document.getElementById('leaderboardBody');
+  body.innerHTML = '<p style="color:var(--text-muted)">Loading…</p>';
+  try {
+    const board = await req(`/social/leaderboard/?period=${period}`);
+    body.innerHTML = renderBoard(board);
+    document.querySelectorAll('#periodBtns button').forEach(b => {
+      const bp = b.getAttribute('onclick').match(/'(\w+)'/)[1];
+      b.className = `small ${bp === period ? 'primary' : ''}`;
+    });
+  } catch(e) { body.innerHTML = `<div class="msg err">${e.message}</div>`; }
+}
+
+let _searchTimer = null;
+function debounceSearch(q) {
+  clearTimeout(_searchTimer);
+  if (q.length < 2) {
+    document.getElementById('searchResults').innerHTML = '';
+    return;
+  }
+  _searchTimer = setTimeout(() => runSearch(q), 400);
+}
+
+async function runSearch(q) {
+  const el = document.getElementById('searchResults');
+  if (!el) return;
+  try {
+    const results = await req(`/social/search/?q=${encodeURIComponent(q)}`);
+    if (!results.length) {
+      el.innerHTML = '<p style="color:var(--text-muted);font-size:13px">No users found.</p>';
+      return;
+    }
+    el.innerHTML = results.map(u => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border-soft)">
+        <span style="font-size:13px;font-weight:500">${u.username}</span>
+        ${u.already_following
+          ? '<span style="font-size:11px;color:var(--accent);font-weight:600">Following ✓</span>'
+          : `<button class="small primary" onclick="followUser(${u.id}, '${u.username}')">Follow</button>`
+        }
+      </div>`).join('');
+  } catch(e) {
+    if (el) el.innerHTML = `<div class="msg err">${e.message}</div>`;
+  }
+}
+
+async function followUser(id, username) {
+  try {
+    await req('/social/friends/add/', 'POST', { user_id: id });
+    toast(`Now following ${username}!`);
+    social();
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function unfollowUser(id, username) {
+  if (!confirm(`Unfollow ${username}?`)) return;
+  try {
+    await req(`/social/friends/${id}/`, 'DELETE');
+    toast(`Unfollowed ${username}.`);
+    social();
+  } catch(e) { toast(e.message, 'err'); }
+}
+</script>

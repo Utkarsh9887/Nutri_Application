@@ -1,0 +1,98 @@
+<script>
+/* ══════════════════════════════════════════════════════
+   PROGRESS
+══════════════════════════════════════════════════════ */
+async function progress() {
+  const c = document.getElementById('content');
+  c.innerHTML = '<p>Loading…</p>';
+  try {
+    const entries = await req('/progress/weight/');
+    const latest  = entries.length ? entries[entries.length - 1].weight : null;
+    const first   = entries.length ? entries[0].weight : null;
+    const diff    = (latest !== null && first !== null) ? +(latest - first).toFixed(1) : null;
+    const last7   = entries.slice(-7);
+    const avg7    = last7.length ? (last7.reduce((s,e) => s+e.weight, 0)/last7.length).toFixed(1) : '—';
+
+    c.innerHTML = `
+      <h2>Weight Progress</h2>
+      <div class="row">
+        <div class="card stat"><div class="val">${latest ?? '—'} kg</div><div class="lbl">Current</div></div>
+        <div class="card stat"><div class="val">${first ?? '—'} kg</div><div class="lbl">Starting</div></div>
+        <div class="card stat"><div class="val" style="color:${diff<=0?'#16a34a':'#dc2626'}">${diff===null?'—':(diff>0?'+':'')+diff+' kg'}</div><div class="lbl">Total Change</div></div>
+        <div class="card stat"><div class="val">${avg7} kg</div><div class="lbl">7-Day Avg</div></div>
+      </div>
+
+      <div class="row">
+        <div class="card" style="flex:2">
+          <h3>Weight Chart</h3>
+          ${entries.length < 2
+            ? '<p style="color:#888">Log at least 2 entries to see the chart.</p>'
+            : '<canvas id="wChart" height="80"></canvas>'}
+        </div>
+        <div class="card" style="flex:1">
+          <h3>Log Weight</h3>
+          <div style="margin-bottom:8px"><label>Weight (kg)</label><input id="wInput" type="number" step="0.1" min="1" placeholder="e.g. 75.5"></div>
+          <div style="margin-bottom:8px"><label>Date</label><input id="wDate" type="date" value="${today()}"></div>
+          <button class="primary" onclick="logWeight()">Save</button>
+          <p style="color:#888;font-size:11px;margin-top:6px">Same date = updates existing entry.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>History</h3>
+        ${entries.length === 0 ? '<p style="color:#888">No entries yet.</p>' : `
+        <table>
+          <tr><th>Date</th><th>Weight</th><th>Change</th><th></th></tr>
+          ${[...entries].reverse().map((e, i, arr) => {
+            const prev = arr[i+1];
+            const d = prev ? +(e.weight - prev.weight).toFixed(1) : null;
+            const chg = d === null ? '—' : d === 0 ? '0.0 kg'
+              : d < 0 ? `<span style="color:#16a34a">▼ ${Math.abs(d)} kg</span>`
+                      : `<span style="color:#dc2626">▲ ${d} kg</span>`;
+            return `<tr>
+              <td>${e.date}</td><td><strong>${e.weight} kg</strong></td><td>${chg}</td>
+              <td><button class="danger small" onclick="deleteWeight(${e.id})">✕</button></td>
+            </tr>`;
+          }).join('')}
+        </table>`}
+      </div>
+    `;
+
+    if (entries.length >= 2) {
+      if (weightChart) weightChart.destroy();
+      weightChart = new Chart(document.getElementById('wChart').getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: entries.map(e => e.date),
+          datasets: [{ label: 'Weight (kg)', data: entries.map(e => e.weight),
+            borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)',
+            fill: true, tension: 0.3, pointRadius: 3 }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } },
+          scales: { y: { ticks: { callback: v => v+' kg' } } } }
+      });
+    }
+  } catch(e) { c.innerHTML = `<div class="msg err">${e.message}</div>`; }
+}
+
+async function logWeight() {
+  const w = parseFloat(document.getElementById('wInput').value);
+  const d = document.getElementById('wDate').value;
+  if (isNaN(w) || w <= 0) return toast('Enter a valid weight.', 'err');
+  if (!d) return toast('Pick a date.', 'err');
+  try {
+    await req('/progress/weight/', 'POST', { weight: w, date: d });
+    toast('Weight saved!');
+    progress();
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function deleteWeight(id) {
+  if (!confirm('Delete this entry?')) return;
+  try {
+    await req(`/progress/weight/${id}/`, 'DELETE');
+    toast('Entry deleted.');
+    progress();
+  } catch(e) { toast(e.message, 'err'); }
+}
+</script>

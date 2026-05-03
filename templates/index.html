@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block auth %}
+<!-- ── AUTH ─────────────────────────────────────────── -->
+{% include "modules/auth.html" %}
+{% endblock %}
+
+{% block scripts %}
+{% include "modules/dashboard.html" %}
+{% include "modules/nutrition.html" %}
+{% include "modules/macro.html" %}
+{% include "modules/workout.html" %}
+{% include "modules/progress.html" %}
+{% include "modules/profile.html" %}
+{% include "modules/photos.html" %}
+{% include "modules/social.html" %}
+{% endblock %}

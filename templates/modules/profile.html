@@ -1,0 +1,189 @@
+<script>
+/* ══════════════════════════════════════════════════════
+   PROFILE & SETTINGS
+══════════════════════════════════════════════════════ */
+async function profile() {
+  const c = document.getElementById('content');
+  c.innerHTML = '<p>Loading…</p>';
+  try {
+    const u = await req('/auth/profile/');
+    const p = u.profile || {};
+
+    c.innerHTML = `
+      <h2>Profile & Settings</h2>
+      <div class="row" style="align-items:flex-start">
+
+        <!-- ── Profile info ── -->
+        <div style="flex:2">
+          <div class="card">
+            <h3>Personal Info</h3>
+            <div class="row">
+              <div>
+                <label>Display Name</label>
+                <input id="pName" value="${p.display_name || ''}">
+              </div>
+              <div>
+                <label>Email</label>
+                <input id="pEmail" type="email" value="${u.email || ''}">
+              </div>
+            </div>
+            <div style="margin-top:8px">
+              <label>Bio</label>
+              <textarea id="pBio" rows="2" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:14px">${p.bio || ''}</textarea>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <div>
+                <label>Gender</label>
+                <select id="pGender">
+                  <option value="">— select —</option>
+                  <option value="male"   ${p.gender==='male'   ?'selected':''}>Male</option>
+                  <option value="female" ${p.gender==='female' ?'selected':''}>Female</option>
+                  <option value="other"  ${p.gender==='other'  ?'selected':''}>Other</option>
+                </select>
+              </div>
+              <div>
+                <label>Date of Birth</label>
+                <input id="pDob" type="date" value="${p.date_of_birth || ''}">
+              </div>
+              <div>
+                <label>Height (cm)</label>
+                <input id="pHeight" type="number" step="0.1" value="${p.height_cm || ''}">
+              </div>
+            </div>
+            <button class="primary" style="margin-top:12px" onclick="saveProfile()">Save Profile</button>
+            <div id="profileMsg" style="margin-top:8px"></div>
+          </div>
+
+          <div class="card">
+            <h3>Fitness Goals</h3>
+            <div class="row">
+              <div>
+                <label>Goal</label>
+                <select id="pGoal">
+                  <option value="">— select —</option>
+                  <option value="lose"     ${p.goal==='lose'     ?'selected':''}>Lose Weight</option>
+                  <option value="maintain" ${p.goal==='maintain' ?'selected':''}>Maintain Weight</option>
+                  <option value="gain"     ${p.goal==='gain'     ?'selected':''}>Gain Muscle</option>
+                </select>
+              </div>
+              <div>
+                <label>Activity Level</label>
+                <select id="pActivity">
+                  <option value="">— select —</option>
+                  <option value="sedentary"      ${p.activity_level==='sedentary'      ?'selected':''}>Sedentary</option>
+                  <option value="lightly_active" ${p.activity_level==='lightly_active' ?'selected':''}>Lightly Active</option>
+                  <option value="active"         ${p.activity_level==='active'         ?'selected':''}>Active</option>
+                  <option value="very_active"    ${p.activity_level==='very_active'    ?'selected':''}>Very Active</option>
+                </select>
+              </div>
+            </div>
+            <button class="primary" style="margin-top:12px" onclick="saveProfile()">Save Goals</button>
+          </div>
+        </div>
+
+        <!-- ── Account settings ── -->
+        <div style="flex:1">
+          <div class="card">
+            <h3>Account</h3>
+            <p style="color:#666;margin-bottom:12px;font-size:13px">
+              Username: <strong>${u.username}</strong>
+            </p>
+
+            <h3 style="margin-top:4px">Change Password</h3>
+            <div style="margin-bottom:8px">
+              <label>Current Password</label>
+              <input id="pwCurrent" type="password" placeholder="current password">
+            </div>
+            <div style="margin-bottom:8px">
+              <label>New Password</label>
+              <input id="pwNew" type="password" placeholder="min 6 characters">
+            </div>
+            <div style="margin-bottom:8px">
+              <label>Confirm New Password</label>
+              <input id="pwConfirm" type="password" placeholder="repeat new password">
+            </div>
+            <button class="primary" onclick="changePassword()">Update Password</button>
+            <div id="pwMsg" style="margin-top:8px"></div>
+          </div>
+
+          <div class="card">
+            <h3 style="color:#dc2626">Danger Zone</h3>
+            <p style="color:#666;font-size:13px;margin-bottom:10px">
+              Permanently delete your account and all data. This cannot be undone.
+            </p>
+            <input id="delPass" type="password" placeholder="confirm your password">
+            <button class="danger" style="margin-top:8px;width:100%" onclick="deleteAccount()">Delete My Account</button>
+            <div id="delMsg" style="margin-top:8px"></div>
+          </div>
+        </div>
+
+      </div>
+    `;
+  } catch(e) { c.innerHTML = `<div class="msg err">${e.message}</div>`; }
+}
+
+async function saveProfile() {
+  const body = {
+    display_name:   document.getElementById('pName').value.trim(),
+    email:          document.getElementById('pEmail').value.trim(),
+    bio:            document.getElementById('pBio').value.trim(),
+    gender:         document.getElementById('pGender').value,
+    date_of_birth:  document.getElementById('pDob').value    || null,
+    height_cm:      parseFloat(document.getElementById('pHeight').value) || null,
+    goal:           document.getElementById('pGoal').value,
+    activity_level: document.getElementById('pActivity').value,
+  };
+  try {
+    await req('/auth/profile/', 'PUT', body);
+    document.getElementById('profileMsg').innerHTML = '<div class="msg ok">Profile saved!</div>';
+    toast('Profile updated!');
+  } catch(e) {
+    document.getElementById('profileMsg').innerHTML = `<div class="msg err">${e.message}</div>`;
+  }
+}
+
+async function changePassword() {
+  const current = document.getElementById('pwCurrent').value;
+  const newPw   = document.getElementById('pwNew').value;
+  const confirm = document.getElementById('pwConfirm').value;
+  const msgEl   = document.getElementById('pwMsg');
+
+  if (!current || !newPw || !confirm) {
+    msgEl.innerHTML = '<div class="msg err">Fill in all password fields.</div>'; return;
+  }
+  if (newPw.length < 6) {
+    msgEl.innerHTML = '<div class="msg err">New password must be at least 6 characters.</div>'; return;
+  }
+  if (newPw !== confirm) {
+    msgEl.innerHTML = '<div class="msg err">Passwords do not match.</div>'; return;
+  }
+  try {
+    const d = await req('/auth/change-password/', 'POST', {
+      current_password: current,
+      new_password:     newPw
+    });
+    saveToken(d.token);
+    msgEl.innerHTML = '<div class="msg ok">Password updated!</div>';
+    ['pwCurrent','pwNew','pwConfirm'].forEach(id => document.getElementById(id).value = '');
+    toast('Password changed successfully.');
+  } catch(e) {
+    msgEl.innerHTML = `<div class="msg err">${e.message}</div>`;
+  }
+}
+
+async function deleteAccount() {
+  const password = document.getElementById('delPass').value;
+  if (!password) {
+    document.getElementById('delMsg').innerHTML = '<div class="msg err">Enter your password to confirm.</div>';
+    return;
+  }
+  if (!confirm('This will permanently delete your account and ALL your data. Are you sure?')) return;
+  try {
+    await req('/auth/profile/', 'DELETE', { password });
+    toast('Account deleted. Goodbye!');
+    doLogout();
+  } catch(e) {
+    document.getElementById('delMsg').innerHTML = `<div class="msg err">${e.message}</div>`;
+  }
+}
+</script>

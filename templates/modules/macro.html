@@ -1,0 +1,37 @@
+<script>
+/* ══════════════════════════════════════════════════════
+   MACRO GOALS
+══════════════════════════════════════════════════════ */
+async function macros() {
+  const c = document.getElementById('content');
+  c.innerHTML = '<p>Loading…</p>';
+  try {
+    const t = await req('/nutrition/macro/');
+    c.innerHTML = `
+      <h2>Daily Macro Goals</h2>
+      <div class="card" style="max-width:400px">
+        <div style="margin-bottom:10px"><label>Calorie Goal (kcal)</label><input id="mCal" type="number" value="${t.calorie_goal}"></div>
+        <div style="margin-bottom:10px"><label>Protein (g)</label><input id="mPro" type="number" value="${t.protein}"></div>
+        <div style="margin-bottom:10px"><label>Carbs (g)</label><input id="mCarb" type="number" value="${t.carbs}"></div>
+        <div style="margin-bottom:10px"><label>Fats (g)</label><input id="mFat" type="number" value="${t.fats}"></div>
+        <button class="primary" onclick="saveMacros()">Save Goals</button>
+        <div id="macroMsg" style="margin-top:10px"></div>
+      </div>`;
+  } catch(e) { c.innerHTML = `<div class="msg err">${e.message}</div>`; }
+}
+
+async function saveMacros() {
+  const body = {
+    calorie_goal: parseInt(document.getElementById('mCal').value),
+    protein:      parseInt(document.getElementById('mPro').value),
+    carbs:        parseInt(document.getElementById('mCarb').value),
+    fats:         parseInt(document.getElementById('mFat').value),
+  };
+  try {
+    await req('/nutrition/macro/', 'PUT', body);
+    document.getElementById('macroMsg').innerHTML = '<div class="msg ok">Goals saved!</div>';
+  } catch(e) {
+    document.getElementById('macroMsg').innerHTML = `<div class="msg err">${e.message}</div>`;
+  }
+}
+</script>

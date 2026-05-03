@@ -1,0 +1,146 @@
+<script>
+/* ══════════════════════════════════════════════════════
+   WORKOUT
+══════════════════════════════════════════════════════ */
+let _exercises  = [];
+let _templates  = [];
+let _pendingLog = [];
+
+async function workout() {
+  const c = document.getElementById('content');
+  c.innerHTML = '<p>Loading…</p>';
+  try {
+    [_exercises, _templates] = await Promise.all([
+      req('/workouts/exercises/'),
+      req('/workouts/templates/')
+    ]);
+    const logs = await req('/workouts/logs/');
+    _pendingLog = [];
+    renderWorkoutPage(logs);
+  } catch(e) { c.innerHTML = `<div class="msg err">${e.message}</div>`; }
+}
+
+function renderWorkoutPage(logs) {
+  const c = document.getElementById('content');
+  c.innerHTML = `
+    <h2>Workout</h2>
+    <div class="row">
+
+      <!-- Left col -->
+      <div>
+        <div class="card">
+          <h3>Templates</h3>
+          ${_templates.map(t =>
+            `<button style="margin:3px" onclick="applyTemplate(${t.id},'${t.name}')">${t.name}</button>`
+          ).join('')}
+        </div>
+        <div class="card">
+          <h3>Exercise Library</h3>
+          <table>
+            <tr><th>Name</th><th>Muscle</th><th>Level</th></tr>
+            ${_exercises.map(e =>
+              `<tr><td>${e.name}</td><td>${e.muscle_group}</td><td>${e.experience_level}</td></tr>`
+            ).join('')}
+          </table>
+        </div>
+      </div>
+
+      <!-- Right col -->
+      <div>
+        <div class="card">
+          <h3>Log an Exercise</h3>
+          <div style="margin-bottom:8px">
+            <label>Exercise</label>
+            <select id="wEx">
+              ${_exercises.map(e => `<option value="${e.id}|${e.name}">${e.name} — ${e.muscle_group}</option>`).join('')}
+            </select>
+          </div>
+          <div class="row">
+            <div><label>Sets</label><input id="wSets" type="number" value="3" min="1"></div>
+            <div><label>Reps</label><input id="wReps" type="number" value="10" min="1"></div>
+            <div><label>Weight (kg)</label><input id="wKg" type="number" value="0" min="0" step="0.5"></div>
+            <div><label>Difficulty</label>
+              <select id="wDiff"><option>Easy</option><option selected>Medium</option><option>Hard</option></select>
+            </div>
+          </div>
+          <button class="primary" style="margin-top:8px" onclick="saveLog()">Save to Backend</button>
+          <div id="wMsg" style="margin-top:8px"></div>
+        </div>
+
+        <div class="card" id="logsCard">
+          <h3>My Workout History <button onclick="refreshLogs()" style="font-size:12px">Refresh</button></h3>
+          ${renderLogTable(logs)}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderLogTable(logs) {
+  if (!logs.length) return '<p style="color:#888">No workouts logged yet.</p>';
+  return `<table>
+    <tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>Weight</th><th>Difficulty</th><th>Date</th><th></th></tr>
+    ${logs.slice(0, 20).map(l => `<tr>
+      <td>${l.name}</td><td>${l.sets}</td><td>${l.reps}</td>
+      <td>${l.weight} kg</td><td>${l.difficulty}</td><td>${l.date}</td>
+      <td><button class="danger small" onclick="deleteLog(${l.id})">✕</button></td>
+    </tr>`).join('')}
+  </table>${logs.length > 20 ? `<p style="color:#888;font-size:12px;margin-top:4px">Showing latest 20 of ${logs.length}</p>` : ''}`;
+}
+
+async function saveLog() {
+  const sel  = document.getElementById('wEx').value.split('|');
+  const body = {
+    exercise_id: parseInt(sel[0]),
+    name:        sel[1],
+    sets:        parseInt(document.getElementById('wSets').value),
+    reps:        parseInt(document.getElementById('wReps').value),
+    weight:      parseFloat(document.getElementById('wKg').value) || 0,
+    difficulty:  document.getElementById('wDiff').value,
+    date:        today()
+  };
+  try {
+    await req('/workouts/logs/', 'POST', body);
+    toast('Workout logged!');
+    document.getElementById('wMsg').innerHTML = '<div class="msg ok">Saved!</div>';
+    refreshLogs();
+  } catch(e) {
+    document.getElementById('wMsg').innerHTML = `<div class="msg err">${e.message}</div>`;
+  }
+}
+
+async function refreshLogs() {
+  try {
+    const logs = await req('/workouts/logs/');
+    document.getElementById('logsCard').innerHTML =
+      '<h3>My Workout History <button onclick="refreshLogs()" style="font-size:12px">Refresh</button></h3>' +
+      renderLogTable(logs);
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function deleteLog(id) {
+  if (!confirm('Delete this log entry?')) return;
+  try {
+    await req(`/workouts/logs/${id}/`, 'DELETE');
+    toast('Deleted.');
+    refreshLogs();
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+function applyTemplate(id, name) {
+  const tpl = _templates.find(t => t.id === id);
+  if (!tpl) return;
+  const exNames = tpl.exercises.map(exId => {
+    const ex = _exercises.find(e => e.id === exId);
+    return ex ? ex.name : `Exercise #${exId}`;
+  }).join(', ');
+  toast(`Template "${name}" loaded: ${exNames}`);
+  if (tpl.exercises.length) {
+    const sel = document.getElementById('wEx');
+    const firstId = tpl.exercises[0];
+    for (let opt of sel.options) {
+      if (opt.value.startsWith(firstId + '|')) { sel.value = opt.value; break; }
+    }
+  }
+}
+</script>

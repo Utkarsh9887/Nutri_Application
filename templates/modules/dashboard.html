@@ -1,0 +1,49 @@
+<script>
+/* ══════════════════════════════════════════════════════
+   DASHBOARD
+══════════════════════════════════════════════════════ */
+async function dashboard() {
+  const c = document.getElementById('content');
+  c.innerHTML = '<p>Loading…</p>';
+  try {
+    const [dash, targets] = await Promise.all([
+      req('/nutrition/dashboard/'),
+      req('/nutrition/macro/')
+    ]);
+    const bar = (v, g, color) => `
+      <div class="prog-track">
+        <div class="prog-fill" style="width:${g ? Math.min(100, Math.round(v/g*100)) : 0}%;background:${color}"></div>
+      </div>`;
+    c.innerHTML = `
+      <h2>Today's Summary — ${today()}</h2>
+      <div class="row">
+        <div class="card stat"><div class="val">${dash.total_calories}</div><div class="lbl">Calories / ${targets.calorie_goal} goal</div>${bar(dash.total_calories, targets.calorie_goal,'#2563eb')}</div>
+        <div class="card stat"><div class="val">${dash.total_protein}g</div><div class="lbl">Protein / ${targets.protein}g</div>${bar(dash.total_protein, targets.protein,'#16a34a')}</div>
+        <div class="card stat"><div class="val">${dash.total_carbs}g</div><div class="lbl">Carbs / ${targets.carbs}g</div>${bar(dash.total_carbs, targets.carbs,'#d97706')}</div>
+        <div class="card stat"><div class="val">${dash.total_fats}g</div><div class="lbl">Fats / ${targets.fats}g</div>${bar(dash.total_fats, targets.fats,'#dc2626')}</div>
+      </div>
+      <div class="card">
+        <h3>Today's Meals</h3>
+        ${dash.meals.length === 0 ? '<p style="color:#888">No meals logged today. <a href="#" onclick="go(\'nutrition\');return false">Log food →</a></p>' : `
+        <table>
+          <tr><th>Food</th><th>Type</th><th>Qty</th><th>Cal</th><th>P</th><th>C</th><th>F</th><th></th></tr>
+          ${dash.meals.map(m => `<tr>
+            <td>${m.food_name}</td><td>${m.meal_type}</td><td>${m.quantity}</td>
+            <td>${m.calories}</td><td>${m.protein}g</td><td>${m.carbs}g</td><td>${m.fats}g</td>
+            <td><button class="danger small" onclick="deleteMealDash(${m.id})">✕</button></td>
+          </tr>`).join('')}
+        </table>`}
+      </div>
+    `;
+  } catch(e) { c.innerHTML = `<div class="msg err">${e.message}</div>`; }
+}
+
+async function deleteMealDash(id) {
+  if (!confirm('Delete this meal?')) return;
+  try {
+    await req(`/nutrition/meals/${id}/`, 'DELETE');
+    toast('Meal deleted.');
+    dashboard();
+  } catch(e) { toast(e.message, 'err'); }
+}
+</script>

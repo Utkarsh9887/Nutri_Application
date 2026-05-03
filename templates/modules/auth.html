@@ -1,0 +1,74 @@
+<!-- ── AUTH HTML ─────────────────────────────────────── -->
+<div id="authWrap">
+  <div id="authBox">
+    <h1>💪 Nutri Ai</h1>
+    <p>Your fitness &amp; nutrition tracker</p>
+    <div id="authTabs">
+      <button class="active" onclick="showTab('login')">Login</button>
+      <button onclick="showTab('register')">Register</button>
+    </div>
+    <div id="loginForm" class="auth-form">
+      <div><label>Username</label><input id="lUser" placeholder="username"></div>
+      <div><label>Password</label><input id="lPass" type="password" placeholder="password"></div>
+      <button class="primary" style="width:100%" onclick="doLogin()">Login</button>
+    </div>
+    <div id="registerForm" class="auth-form" style="display:none">
+      <div><label>Username</label><input id="rUser" placeholder="username"></div>
+      <div><label>Password</label><input id="rPass" type="password" placeholder="min 6 chars"></div>
+      <button class="primary" style="width:100%" onclick="doRegister()">Create Account</button>
+    </div>
+    <div id="authMsg"></div>
+  </div>
+</div>
+
+<!-- ── AUTH JS ───────────────────────────────────────── -->
+<script>
+function showTab(tab) {
+  document.getElementById('loginForm').style.display    = tab === 'login'    ? '' : 'none';
+  document.getElementById('registerForm').style.display = tab === 'register' ? '' : 'none';
+  document.querySelectorAll('#authTabs button').forEach((b, i) => {
+    b.classList.toggle('active', (i === 0) === (tab === 'login'));
+  });
+}
+
+function authMsg(msg, type) {
+  document.getElementById('authMsg').innerHTML =
+    `<div class="msg ${type}" style="margin-top:12px">${msg}</div>`;
+}
+
+async function doLogin() {
+  const u = document.getElementById('lUser').value.trim();
+  const p = document.getElementById('lPass').value;
+  if (!u || !p) return authMsg('Fill in all fields.', 'err');
+  try {
+    const d = await req('/auth/login/', 'POST', { username: u, password: p });
+    if (!d.success) return authMsg(d.message, 'err');
+    saveToken(d.token); USER = d.user; startApp();
+  } catch(e) { authMsg(e.message, 'err'); }
+}
+
+async function doRegister() {
+  const u = document.getElementById('rUser').value.trim();
+  const p = document.getElementById('rPass').value;
+  if (!u || !p) return authMsg('Fill in all fields.', 'err');
+  if (p.length < 6) return authMsg('Password must be 6+ characters.', 'err');
+  try {
+    const d = await req('/auth/register/', 'POST', { username: u, password: p });
+    if (!d.success) return authMsg(d.message, 'err');
+    saveToken(d.token); USER = d.user; startApp();
+  } catch(e) { authMsg(e.message, 'err'); }
+}
+
+function doLogout() {
+  clearToken(); USER = null;
+  document.getElementById('appWrap').style.display  = 'none';
+  document.getElementById('authWrap').style.display = 'flex';
+}
+
+async function startApp() {
+  document.getElementById('authWrap').style.display = 'none';
+  document.getElementById('appWrap').style.display  = 'block';
+  document.getElementById('greeting').textContent = '👋 ' + USER.username;
+  go('dashboard');
+}
+</script>

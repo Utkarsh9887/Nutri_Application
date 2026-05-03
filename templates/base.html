@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nutri Ai</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  /* ── Variables ────────────────────────────────────────────────────────── */
+  :root {
+    --bg:          #0d1117;
+    --bg2:         #161b22;
+    --bg3:         #1c2330;
+    --border:      #30363d;
+    --border-soft: #21262d;
+    --text:        #e6edf3;
+    --text-muted:  #7d8590;
+    --text-dim:    #484f58;
+    --accent:      #39d353;
+    --accent-dim:  #1a4d2e;
+    --accent-glow: rgba(57,211,83,0.18);
+    --blue:        #388bfd;
+    --blue-dim:    #1c3a6e;
+    --red:         #f85149;
+    --red-dim:     #4d1a19;
+    --amber:       #d29922;
+    --amber-dim:   #4d3800;
+    --radius:      10px;
+    --radius-lg:   16px;
+    --shadow:      0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+    --shadow-lg:   0 8px 32px rgba(0,0,0,0.5);
+    --transition:  0.18s ease;
+    --font:        'Sora', sans-serif;
+    --font-mono:   'DM Mono', monospace;
+  }
+
+  /* ── Reset & Base ─────────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      linear-gradient(rgba(57,211,83,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(57,211,83,0.02) 1px, transparent 1px);
+    background-size: 32px 32px;
+    min-height: 100vh;
+  }
+
+  /* ── Typography ───────────────────────────────────────────────────────── */
+  h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 16px; color: var(--text); }
+  h3 { font-size: 13px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+  label { display: block; margin-bottom: 5px; font-size: 12px; font-weight: 500; letter-spacing: 0.4px; color: var(--text-muted); text-transform: uppercase; }
+  strong { color: var(--text); font-weight: 600; }
+  p { color: var(--text-muted); line-height: 1.65; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── Inputs & Selects ─────────────────────────────────────────────────── */
+  input, select, textarea {
+    font-family: var(--font); font-size: 14px; width: 100%; padding: 9px 12px;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text); transition: border-color var(--transition), box-shadow var(--transition);
+    outline: none; appearance: none;
+  }
+  input::placeholder, textarea::placeholder { color: var(--text-dim); }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237d8590' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; cursor: pointer;
+  }
+  select option { background: var(--bg2); color: var(--text); }
+  input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+  textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
+
+  /* ── Buttons ──────────────────────────────────────────────────────────── */
+  button {
+    font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer;
+    padding: 9px 18px; border-radius: var(--radius); border: 1px solid var(--border);
+    background: var(--bg3); color: var(--text-muted); transition: all var(--transition);
+    letter-spacing: 0.2px; white-space: nowrap;
+  }
+  button:hover { background: var(--bg2); color: var(--text); border-color: var(--text-dim); }
+  button:active { transform: scale(0.97); }
+  button.primary { background: var(--accent); color: #0d1117; border-color: var(--accent); font-weight: 700; }
+  button.primary:hover { background: #45e060; border-color: #45e060; box-shadow: 0 0 16px var(--accent-glow); color: #0d1117; }
+  button.danger { background: var(--red-dim); color: var(--red); border-color: rgba(248,81,73,0.3); }
+  button.danger:hover { background: var(--red); color: #fff; border-color: var(--red); }
+  button.small { padding: 3px 10px; font-size: 11px; border-radius: 6px; }
+
+  /* ── Cards ────────────────────────────────────────────────────────────── */
+  .card { background: var(--bg2); border: 1px solid var(--border-soft); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow); transition: border-color var(--transition); }
+  .card:hover { border-color: var(--border); }
+
+  /* ── Tables ───────────────────────────────────────────────────────────── */
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 11px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-dim); padding: 8px 12px; border-bottom: 1px solid var(--border-soft); background: transparent; text-align: left; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border-soft); color: var(--text); font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* ── Layout helpers ───────────────────────────────────────────────────── */
+  .row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .row > * { flex: 1; min-width: 140px; }
+
+  /* ── Stat cards ───────────────────────────────────────────────────────── */
+  .stat { text-align: center; position: relative; overflow: hidden; }
+  .stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.6; }
+  .stat .val { font-size: 26px; font-weight: 800; letter-spacing: -1px; color: var(--text); font-family: var(--font-mono); line-height: 1.2; }
+  .stat .lbl { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; margin-top: 4px; }
+
+  /* ── Feedback messages ────────────────────────────────────────────────── */
+  .msg { padding: 10px 14px; border-radius: var(--radius); margin-bottom: 12px; font-size: 13px; font-weight: 500; }
+  .msg.ok  { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(57,211,83,0.2); }
+  .msg.err { background: var(--red-dim); color: var(--red); border: 1px solid rgba(248,81,73,0.2); }
+
+  /* ── Toast ────────────────────────────────────────────────────────────── */
+  #toast {
+    position: fixed; bottom: 28px; right: 28px; padding: 12px 20px;
+    border-radius: var(--radius); background: var(--bg3); color: var(--text);
+    font-size: 13px; font-weight: 500; display: none; z-index: 9999;
+    border: 1px solid var(--border); box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(8px); animation: slideUp 0.22s ease;
+  }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Auth screen ──────────────────────────────────────────────────────── */
+  #authWrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 24px; }
+  #authBox { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 36px 32px; width: 100%; max-width: 360px; box-shadow: var(--shadow-lg); animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  #authBox h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; color: var(--text); }
+  #authBox > p { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
+  #authTabs { display: flex; background: var(--bg3); border-radius: var(--radius); padding: 3px; margin-bottom: 24px; border: 1px solid var(--border-soft); }
+  #authTabs button { flex: 1; border: none; background: transparent; padding: 7px 12px; font-weight: 600; font-size: 13px; color: var(--text-muted); border-radius: 8px; margin: 0; transition: all var(--transition); }
+  #authTabs button.active { background: var(--accent); color: #0d1117; box-shadow: 0 2px 8px var(--accent-glow); }
+  .auth-form > div { margin-bottom: 14px; }
+
+  /* ── App layout ───────────────────────────────────────────────────────── */
+  #appWrap { display: none; }
+  #topbar { background: var(--bg2); border-bottom: 1px solid var(--border-soft); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 54px; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(12px); }
+  #topbar h1 { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  #topbar h1::before { content: ''; display: inline-block; width: 8px; height: 8px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 8px var(--accent); }
+  #topbar > div { display: flex; align-items: center; gap: 12px; }
+  #greeting { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+  #topbar button { background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 5px 12px; font-size: 12px; }
+  #topbar button:hover { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+  #nav { background: var(--bg2); border-bottom: 1px solid var(--border-soft); display: flex; overflow-x: auto; scrollbar-width: none; padding: 0 16px; }
+  #nav::-webkit-scrollbar { display: none; }
+  #nav button { border: none; background: none; padding: 14px 16px; color: var(--text-muted); white-space: nowrap; border-bottom: 2px solid transparent; border-radius: 0; font-size: 13px; font-weight: 500; letter-spacing: 0.1px; margin: 0; transition: color var(--transition), border-color var(--transition); }
+  #nav button:hover { color: var(--text); background: none; }
+  #nav button.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+  #content { padding: 28px 24px; max-width: 1000px; margin: 0 auto; }
+
+  /* ── Progress bars ────────────────────────────────────────────────────── */
+  .prog-track { background: var(--bg3); border-radius: 99px; height: 6px; margin-top: 6px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 99px; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+
+  /* ── Danger zone ──────────────────────────────────────────────────────── */
+  .danger-zone { border-color: rgba(248,81,73,0.2) !important; }
+  .danger-zone h3 { color: var(--red) !important; }
+
+  /* ── Chart container ─────────────────────────────────────────────────── */
+  canvas { max-height: 260px; }
+
+  /* ── Scrollbar ───────────────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  /* ── Responsive ──────────────────────────────────────────────────────── */
+  @media (max-width: 600px) {
+    #content  { padding: 16px 14px; }
+    #topbar   { padding: 0 14px; }
+    .stat .val { font-size: 20px; }
+    .row { gap: 10px; }
+    .card { padding: 14px; }
+  }
+</style>
+</head>
+<body>
+
+{% block auth %}{% endblock %}
+
+<!-- ── MAIN APP ──────────────────────────────────────── -->
+<div id="appWrap">
+  <div id="topbar">
+    <h1>💪 Nutri Ai</h1>
+    <div>
+      <span id="greeting" style="margin-right:12px;font-size:13px"></span>
+      <button onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+  <div id="nav">
+    <button class="active" onclick="go('dashboard')">Dashboard</button>
+    <button onclick="go('nutrition')">Nutrition</button>
+    <button onclick="go('macros')">Macro Goals</button>
+    <button onclick="go('workout')">Workout</button>
+    <button onclick="go('progress')">Progress</button>
+    <button onclick="go('photos')">Photos</button>
+    <button onclick="go('social')">Social</button>
+    <button onclick="go('profile')">Profile &amp; Settings</button>
+  </div>
+  <div id="content"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   CONFIG & HELPERS
+══════════════════════════════════════════════════════ */
+const API = '/api';
+let TOKEN = localStorage.getItem('authToken');
+let USER  = null;
+let weightChart = null;
+
+function saveToken(t) { TOKEN = t; localStorage.setItem('authToken', t); }
+function clearToken()  { TOKEN = null; localStorage.removeItem('authToken'); }
+
+async function req(path, method = 'GET', body = null) {
+  const h = { 'Content-Type': 'application/json' };
+  if (TOKEN) h['Authorization'] = 'Token ' + TOKEN;
+  const r = await fetch(API + path, { method, headers: h, body: body ? JSON.stringify(body) : null });
+  if (r.status === 204) return { success: true };
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || d.message || 'Error ' + r.status);
+  return d;
+}
+
+function toast(msg, type = 'ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = type === 'err' ? '#dc2626' : '#16a34a';
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2800);
+}
+
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function html(strings, ...vals) {
+  return strings.reduce((a, s, i) => a + (vals[i - 1] == null ? '' : String(vals[i - 1])) + s);
+}
+
+/* ══════════════════════════════════════════════════════
+   NAV
+══════════════════════════════════════════════════════ */
+function go(tab) {
+  document.querySelectorAll('#nav button').forEach(b => b.classList.remove('active'));
+  const tabs = ['dashboard','nutrition','macros','workout','progress','profile','photos','social'];
+  const idx  = tabs.indexOf(tab);
+  if (idx >= 0) document.querySelectorAll('#nav button')[idx].classList.add('active');
+  const fns = { dashboard, nutrition, macros, workout, progress, profile, photos, social };
+  fns[tab]();
+}
+</script>
+
+<!-- ── PAGE-SPECIFIC SCRIPTS (injected by index.html) ── -->
+{% block scripts %}{% endblock %}
+
+<script>
+/* ══════════════════════════════════════════════════════
+   BOOTSTRAP
+══════════════════════════════════════════════════════ */
+(async function boot() {
+  if (!TOKEN) return;
+  try {
+    USER = await req('/auth/profile/');
+    startApp();
+  } catch { clearToken(); }
+})();
+</script>
+
+</body>
+</html>

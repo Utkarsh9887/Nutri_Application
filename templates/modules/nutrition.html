@@ -1,0 +1,160 @@
+<script>
+/* ══════════════════════════════════════════════════════
+   NUTRITION
+══════════════════════════════════════════════════════ */
+async function nutrition() {
+  const c = document.getElementById('content');
+  c.innerHTML = '<p>Loading…</p>';
+
+  const dateVal = today();
+  let meals = [];
+  try { meals = await req(`/nutrition/meals/${dateVal}/`); } catch(e) {}
+
+  c.innerHTML = `
+    <h2>Nutrition Log</h2>
+    <div class="card" style="border-color:var(--accent)">
+      <h3 style="color:var(--accent)">✦ AI Meal Analyser</h3>
+      <p style="font-size:13px;margin-bottom:12px">
+        Describe what you ate — AI will estimate calories and macros.
+      </p>
+      <div style="display:flex;gap:8px">
+        <input id="aiDesc" placeholder='e.g. "2 boiled eggs and a glass of milk"' style="flex:1">
+        <button class="primary" onclick="analyseMeal()" id="analyseBtn">Analyse</button>
+      </div>
+      <div id="aiMsg" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <h3>Log Food</h3>
+      <div class="row">
+        <div><label>Food Name</label><input id="fName" placeholder="e.g. Chicken Rice"></div>
+        <div><label>Meal Type</label>
+          <select id="fType">
+            <option value="breakfast">Breakfast</option>
+            <option value="lunch">Lunch</option>
+            <option value="dinner">Dinner</option>
+            <option value="snack">Snack</option>
+          </select>
+        </div>
+        <div><label>Quantity</label><input id="fQty" type="number" value="1" min="0.1" step="0.1"></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div><label>Calories</label><input id="fCal" type="number" placeholder="kcal"></div>
+        <div><label>Protein (g)</label><input id="fPro" type="number" placeholder="0"></div>
+        <div><label>Carbs (g)</label><input id="fCarb" type="number" placeholder="0"></div>
+        <div><label>Fats (g)</label><input id="fFat" type="number" placeholder="0"></div>
+      </div>
+      <div style="margin-top:10px">
+        <button class="primary" onclick="logFood()">Add Meal</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Date</h3>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="mealDate" type="date" value="${dateVal}" style="width:160px">
+        <button onclick="loadMeals()">Load</button>
+      </div>
+    </div>
+
+    <div class="card" id="mealsList">
+      ${renderMealTable(meals)}
+    </div>
+  `;
+}
+
+function renderMealTable(meals) {
+  if (!meals.length) return '<p style="color:#888">No meals for this date.</p>';
+  return `<h3>Meals</h3>
+    <table>
+      <tr><th>Food</th><th>Type</th><th>Qty</th><th>Cal</th><th>P</th><th>C</th><th>F</th><th></th></tr>
+      ${meals.map(m => `<tr>
+        <td>${m.food_name}</td><td>${m.meal_type}</td><td>${m.quantity}</td>
+        <td>${m.calories}</td><td>${m.protein}g</td><td>${m.carbs}g</td><td>${m.fats}g</td>
+        <td><button class="danger small" onclick="deleteMeal(${m.id})">✕</button></td>
+      </tr>`).join('')}
+    </table>`;
+}
+
+async function logFood() {
+  const name = document.getElementById('fName').value.trim();
+  const cal  = parseFloat(document.getElementById('fCal').value);
+  const pro  = parseFloat(document.getElementById('fPro').value) || 0;
+  const carb = parseFloat(document.getElementById('fCarb').value) || 0;
+  const fat  = parseFloat(document.getElementById('fFat').value) || 0;
+  const type = document.getElementById('fType').value;
+  const qty  = parseFloat(document.getElementById('fQty').value) || 1;
+  if (!name || isNaN(cal)) return toast('Enter food name and calories.', 'err');
+  try {
+    await req('/nutrition/log-food/', 'POST', { food_name: name, calories: cal, protein: pro, carbs: carb, fats: fat, meal_type: type, quantity: qty });
+    toast('Meal logged!');
+    ['fName','fCal','fPro','fCarb','fFat'].forEach(id => document.getElementById(id).value = '');
+    loadMeals();
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function loadMeals() {
+  const date = document.getElementById('mealDate').value || today();
+  try {
+    const meals = await req(`/nutrition/meals/${date}/`);
+    document.getElementById('mealsList').innerHTML = renderMealTable(meals);
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function deleteMeal(id) {
+  if (!confirm('Delete this meal?')) return;
+  try {
+    await req(`/nutrition/meals/${id}/`, 'DELETE');
+    toast('Meal deleted.');
+    loadMeals();
+  } catch(e) { toast(e.message, 'err'); }
+}
+async function analyseMeal() {
+  const desc  = document.getElementById('aiDesc').value.trim();
+  const msgEl = document.getElementById('aiMsg');
+  const btn   = document.getElementById('analyseBtn');
+
+  if (!desc) {
+    msgEl.innerHTML = '<div class="msg err">Describe your meal first.</div>';
+    return;
+  }
+
+  btn.disabled    = true;
+  btn.textContent = 'Analysing…';
+  msgEl.innerHTML = '';
+
+  try {
+    const res = await req('/nutrition/analyse/', 'POST', { description: desc });
+
+    if (!res.success) {
+      msgEl.innerHTML = `<div class="msg err">${res.error}</div>`;
+      return;
+    }
+
+    const d = res.data;
+   
+   document.getElementById('fName').value  = d.food_name;
+   document.getElementById('fCal').value   = d.calories;
+   document.getElementById('fPro').value   = d.protein;
+   document.getElementById('fCarb').value  = d.carbs;
+   document.getElementById('fFat').value   = d.fats;
+   document.getElementById('fType').value  = d.meal_type;
+     
+   document.getElementById('aiDesc').value = '';
+     
+   msgEl.innerHTML = `
+     <div class="msg ok">
+       ✦ <strong>${d.food_name}</strong> —
+       ${d.calories} kcal | P: ${d.protein}g  C: ${d.carbs}g  F: ${d.fats}g
+       <br><span style="font-size:11px;opacity:0.8">Review below and click Log Meal to save.</span>
+     </div>`;
+     
+   document.getElementById('fName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+   toast('Form pre-filled — review and save!');
+     
+  } catch(e) {
+    msgEl.innerHTML = `<div class="msg err">${e.message}</div>`;
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Analyse';
+  }
+}
+</script>
