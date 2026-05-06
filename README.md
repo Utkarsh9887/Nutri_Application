@@ -1,2 +1,2 @@
-# Nutri_Applivation
+# Nutri_Application
 Website for Nutrition tracking
